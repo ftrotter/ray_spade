@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head>
+<title>Clinical Browser Spade</title>
+<style>
+	body {
+		font-family: arial, helvetica, clean, sans-serif;
+		font-size: 14px;
+	}
+	
+	table,div {
+		white-space: nowrap;
+	}
+	img {
+		border: 0px none;
+		vertical-align: middle;
+	}
+	#tdStatus,#tdIdle,#tdUpload {
+		font-weight: bold;
+	}
+
+</style>
+<script src="popup.js"></script>
+</head>
+<body>
+	<table>
+		<tr>
+			<td>Running Status:</td>
+			<td id="tdStatus"></td>
+		</tr>
+		<tr>
+			<td>Idle Threshold:</td>
+			<td id="tdIdle"></td>
+		</tr>
+		<tr>
+			<td>Last Upload:</td>
+			<td id="tdUpload"></td>
+		</tr>
+	</table>
+	<br>
+	<div>
+		<img src="images/icon_16.png">&nbsp;<a href="options.html">Settings</a>
+	</div>
+	
+</body>
+</html>

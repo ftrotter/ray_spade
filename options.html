@@ -1,0 +1,117 @@
+<html>
+<head>
+	<title>Clinical Browser Spade</title>
+	<style>
+	body {
+		font-family: arial, helvetica, sans-serif;
+	}
+	li {
+		margin-bottom: 1em;
+	}
+	h1, h2, h3, a {
+		color:#1D5393;
+	}
+	
+	h1, h2, h3 {
+		margin-top: 0;
+	}
+	img {
+		border: 0px none;
+		vertical-align: middle;
+	}
+	input {
+		padding: 2px 4px;
+		font-family: courier;
+	}
+	
+	.banner {
+		width: 100%;
+	}
+	
+	.banner_left {
+		padding: 8px;
+	}
+	
+	.banner_right {
+		padding: 8px;
+	}
+	
+	.body_wrapper {
+		width: 100%;
+		float: left;
+	}
+	
+	.body_left {
+		border: 0;
+		padding: 0;
+		margin: 0;
+		float: left;
+	}
+	
+	.body_right {
+		border: 0;
+		padding: 0;
+		margin: 0;
+		float: left;
+	}
+	
+	.body_inner {
+		padding: 0 32px;
+	}
+	
+	</style>
+</head>
+<body>
+	<div class="banner">
+		<div class="banner_right">
+			<img src="images/icon_128.png">
+		</div>
+		<div class="banner_left">
+			<h2>Welcome to the Clinical Browser Spade Extension!</h2>
+			<p>
+				Mine your browser for clinical data. For more information, please see: 
+				<a href="http://spade.ft1.us/" target="_blank">http://spade.ft1.us/</a>.
+			</p>
+		</div>
+	</div>
+
+	<div class="body_wrapper">
+		<div class="body_left">
+			<div class="body_inner">
+				<h3>Clinical Data Spade Settings</h3>
+				<p>This setup enables this extension to allow medical students
+					to donate portions of their browser history to an online database of
+					browsing patterns that will become an open data set.</p>
+				<p>
+				<ol>
+					<li>Generate a unique token: <input type="text" id="txtToken"
+						size="36" value="" placeholder="(click the 'Generate Token' button)"
+						spellcheck="false" readonly></input>
+					<button id="btnGenerate">Generate Token</button></li>
+					<li>Set the amount of idle time before the most recent browser history is
+						uploaded: <select id="selIdle"></select>
+					</li>
+
+					<li>Save these settings to get started:
+						<button id="btnSave">Save Settings</button>
+					</li>
+					<li><p>To enable, disable, update, or remove this extension:</p>
+						<ol type="a">
+							<li>Click the Chrome menu <img src="images/chrome.png"> on the browser toolbar.</li>
+							<li>Select <b>Tools</b>.</li>
+							<li>Select <b>Extensions</b>.</li>
+							<li>Click the enabled checkbox <img src="images/enabled.png"> for this extension to enable or disable it.</li>
+							<li>Click the trashcan icon <img src="images/trash.png"> for this extension to remove it.</li>
+							<li>To show this page, click the <b>Options</b> link for this extension.</li>
+						</ol>
+					</li>
+				</ol>
+				</p>
+			</div>
+		</div>
+	</div>
+</body>
+
+<script src="options.js"></script>
+
+</html>
