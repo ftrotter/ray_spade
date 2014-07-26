@@ -1,5 +1,5 @@
 {
-  "name": "Clinical Browser Spade Extension",
+  "name": "DocGraph Spade",
   "icons": {
       "16": "images/icon_16.png",
       "48": "images/icon_48.png",
@@ -19,7 +19,7 @@
       "19": "images/icon_19.png",
       "38": "images/icon_38.png"
      },
-    "default_title": "Clinical Browser Spade",
+    "default_title": "DocGraph Spade",
     "default_popup": "popup.html"       
   },
   "background": {

@@ -1,9 +1,9 @@
-var idle,token,running=false,uploadItems,verifiedItems,lastUpdate,thisUpdate,processing=false;
+var idle,token,running=false,uploadItems,allHistoryItems,allHistoryItemsTemp,allVisitItems,allVisitItems,verifiedItems,lastUpdate,thisUpdate,processing=false;
+var url_tree,chrome_urls,chrome_visits;
 
 //localStorage.removeItem("lastUpdate");  //for testing only
 //localStorage.removeItem("token");  //for testing only
 //localStorage.removeItem("idle");  //for testing only
-
 
 function init() {
 	token=localStorage.token; 
@@ -38,16 +38,18 @@ function init() {
 			if(newState=="idle" && !processing) {
 				processing=true;
 				
-				console.log("newState:"+newState);
 				lastUpdate=parseFloat(localStorage.lastUpdate) || 0.0;
 				thisUpdate=(new Date).getTime();	
-				var query={"text":"","startTime":lastUpdate};
+				var query={"text":"","startTime":lastUpdate,"maxResults":10000};
 		
 				//clear the upload list
 				uploadItems=[];
 				
 				//search all the recent history items
 				chrome.history.search(query,function(historyItems) {
+					//save all the history items because we need these urls to get all the visits
+					allHistoryItemsTemp=historyItems;
+					
 					//get all history items with matching url
 					for(var i=0;i<historyItems.length;i++) {
 						var historyItem=historyItems[i];
@@ -62,14 +64,25 @@ function init() {
 					verifiedItems=[];
 					verifyUploadItems(function(success) {
 						if(success && verifiedItems.length>0) {
-							//upload verified items
-							saveTree(function(result) {
-								//store this update time, so that only items after now are processed
-								//but only if successfully saved to server
-								localStorage["lastUpdate"]=thisUpdate;  //comment out for testing of all links
+							allVisitItems=[];
+							allHistoryItems=[];
+							
+							getAllVisits(function(success) {
+								if(success) {
+									//at this point allHistoryItems, allVisitItems, and verifiedItems are filled
+									//so just need to extract the trees
+									traverseAndPost(function(success) {
+										//all verifiedItems have been posted at this point
+										localStorage["lastUpdate"]=thisUpdate;  //comment out for testing of all links
+										processing=false;
+									});
+								} else {
+									processing=false;
+								}
 							});
+						} else {
+							processing=false;
 						}
-						processing=false;
 					});
 				});
 			}
@@ -77,10 +90,227 @@ function init() {
 	}
 }
 
+function findVisitItemByHistoryItem(historyItem) {
+	for(var i=0;i<allVisitItems.length;i++) {
+		var visitItem=allVisitItems[i];
+		if(visitItem.id==historyItem.id && visitItem.visitTime==historyItem.lastVisitTime) return visitItem;
+	}
+	return null;
+}
+
+
+function findVisitItemByVisitId(visitId) {
+	for(var i=0;i<allVisitItems.length;i++) {
+		var visitItem=allVisitItems[i];
+		if(visitItem.visitId==visitId) return visitItem;
+	}
+	return null;
+}
+
+function findHistoryItemById(id) {
+	for(var i=0;i<allHistoryItems.length;i++) {
+		var historyItem=allHistoryItems[i];
+		if(historyItem.id==id) return historyItem;
+	}
+	return null;
+}
+
+function addChildren(visitId) {
+	//get all visits with referringVisitId equal to this visitId
+	for(var i=0;i<allVisitItems.length;i++) {
+		var visitItem=allVisitItems[i];
+		if(visitItem.referringVisitId==visitId) {
+			//for each one add url, and add visit to chrome_urls and chrome_visits
+			//add the visit
+			chrome_visits.push({
+				visit_id: visitItem.visitId,
+				url_id: visitItem.id,
+				visit_time: visitItem.visitTime,
+				from_visit: visitItem.referringVisitId,
+				transition: visitItem.transition,
+				segment_id: 0,
+				is_indexed: 0,
+				visit_duration: 0
+			});
+			
+			//add the parent url
+			historyItem=findHistoryItemById(visitItem.id);
+			if(historyItem) {
+				chrome_urls.push({
+					url_id: historyItem.id,
+					url: historyItem.url,
+					title: historyItem.title,
+					visit_count: historyItem.visitCount,
+					typed_count: historyItem.typedCount,
+					last_visit_time: historyItem.lastVisitTime,
+					hidden: 0,
+					favicon_id: 0
+				});
+			}			
+
+			//for each one call addChildren(visitId), to get any children of this child
+			addChildren(visitItem.visitId);
+		}
+	}
+}
+
+function traverseAndPost(callback) {
+	if(verifiedItems.length==0) {
+		//no verifiedItems so return success
+		if(callback) callback(true);
+		return;
+	}
+	//look up each verifiedItem
+	var historyItem=verifiedItems.pop();
+
+	console.log("historyItem:"+JSON.stringify(historyItem));
+
+	//upload verified items
+	chrome_urls=[];
+	chrome_visits=[];
+	
+	//fill in chrome_urls and chrome_visits for this verified historyItem
+	
+	//add current url
+	chrome_urls.push({
+		url_id: historyItem.id,
+		url: historyItem.url,
+		title: historyItem.title,
+		visit_count: historyItem.visitCount,
+		typed_count: historyItem.typedCount,
+		last_visit_time: historyItem.lastVisitTime,
+		hidden: 0,
+		favicon_id: 0
+	});
+	
+	//get visit item
+	var visitItem=findVisitItemByHistoryItem(historyItem);
+	
+	//add the visit for the current url
+	chrome_visits.push({
+		visit_id: visitItem.visitId,
+		url_id: visitItem.id,
+		visit_time: visitItem.visitTime,
+		from_visit: visitItem.referringVisitId,
+		transition: visitItem.transition,
+		segment_id: 0,
+		is_indexed: 0,
+		visit_duration: 0
+	});
+
+	//traverse down the visits table, to last leaf in tree from url 5579
+	//recurse branches
+	addChildren(visitItem.visitId);
+
+	//traverse up the visits table to the first typed domain, and add associated urls and visits
+	while(true) {
+		var referringVisitId=visitItem.referringVisitId;
+		//break if no parent
+		if(referringVisitId=="0") break;
+		
+		//get parent visitItem
+		visitItem=findVisitItemByVisitId(visitItem.referringVisitId);
+		//break if parent not in list 
+		if(!visitItem) break;
+
+		//add the parent visit
+		chrome_visits.push({
+			visit_id: visitItem.visitId,
+			url_id: visitItem.id,
+			visit_time: visitItem.visitTime,
+			from_visit: visitItem.referringVisitId,
+			transition: visitItem.transition,
+			segment_id: 0,
+			is_indexed: 0,
+			visit_duration: 0
+		});
+		
+		//add the parent url
+//		"8635"
+		historyItem=findHistoryItemById(visitItem.id);
+		if(historyItem) {
+			chrome_urls.push({
+				url_id: historyItem.id,
+				url: historyItem.url,
+				title: historyItem.title,
+				visit_count: historyItem.visitCount,
+				typed_count: historyItem.typedCount,
+				last_visit_time: historyItem.lastVisitTime,
+				hidden: 0,
+				favicon_id: 0
+			});
+		}
+	}
+	
+	
+	//sort the urls and visits
+	chrome_urls.sort(function(a,b) {
+		if(a.url_id>b.url_id) return 1;
+		if(a.url_id<b.url_id) return -1;
+		return 0;
+	});	
+	
+	chrome_visits.sort(function(a,b) {
+		if(a.visit_id>b.visit_id) return 1;
+		if(a.visit_id<b.visit_id) return -1;
+		return 0;
+	});	
+
+	url_tree={chrome_urls:chrome_urls,chrome_visits:chrome_visits};
+	
+	saveTree(function(success) {
+		if(success) {
+			//check to see if any more verifiedItems to process
+			if(verifiedItems.length>0) {
+				//more verifiedItems to get so get them
+				traverseAndPost(callback);
+			} else {
+				//none left so call the callback
+				if(callback) callback(true);
+			}
+		} else {
+			//error saving the url_tree
+			if(callback) callback(false);
+		}
+	});
+}
+
+function getAllVisits(callback) {
+	if(allHistoryItemsTemp.length==0) {
+		//no allHistoryItemsTemp so return success
+		if(callback) callback(true);
+		return;
+	}
+	//have all the urls, now get the visits, one at a time
+	var historyItem=allHistoryItemsTemp.pop();
+	//save this history item in the main list
+	allHistoryItems.push(historyItem);
+	console.log("historyItem:"+JSON.stringify(historyItem));
+	chrome.history.getVisits({"url":historyItem.url},function(visitItems) {
+		for(var i=0;i<visitItems.length;i++) {
+			var visitItem=visitItems[i];
+			console.log("  --  visitItem:"+JSON.stringify(visitItem));
+			allVisitItems.push(visitItem);
+		}
+		//check to see if any more allHistoryItemsTemp to process
+		if(allHistoryItemsTemp.length>0) {
+			//more allHistoryItemsTemp to get so get them
+			getAllVisits(callback);
+		} else {
+			//none left so call the callback
+			if(callback) callback(true);
+		}
+	});
+}
+
 function saveTree(callback) {
 	var url="http://spade.ft1.us/save_tree.php";
-	var url_tree=JSON.stringify(verifiedItems);
-	console.log("saveTree():"+url_tree);
+	var url_tree_string=JSON.stringify(url_tree);
+	console.log("saveTree():"+url_tree_string);
+	
+//	if(callback) callback(true); //for testing only
+//	return; //for testing only
+	
 	var query="url_tree="+encodeURIComponent(url_tree)+"&user_token="+encodeURIComponent(token);
 	var req=new XMLHttpRequest();
 
