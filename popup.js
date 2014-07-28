@@ -1,6 +1,18 @@
+/**
+ * @file The popup page for the extension, runs when the extensions toolbar button is clicked on
+ * The page shows the status for the idle time, the last idle time, and the running status
+ * It also provides a settings link that will open the options.html page
+ * @author Ray Engelking
+ */
+
 var bgnd=chrome.extension.getBackgroundPage();
 var tdStatus,tdIdle,tdUpload,idleTime,idle,lastUpdate,update;
 
+/**
+ * Called on the window onload event (when the popup has loaded)
+ * The page shows the status for the idle time, the last idle time, and the running status
+ * It also provides a settings link that will open the options.html page
+ */
 function init() {
 	tdStatus=document.getElementById("tdStatus");
 	tdStatus.innerHTML=(bgnd.running?"Running":"Stopped");

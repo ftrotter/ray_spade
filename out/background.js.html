@@ -1,4 +1,31 @@
-/**
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: background.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: background.js</h1>
+
+    
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
  * @file The background page for the extension, runs hidden all the time.
  * Handles checking for the idle time and checking and sending urls to the save_tree.php page
  * @author Ray Engelking
@@ -55,7 +82,7 @@ function init() {
 			console.log("newState:"+newState);
 			
 			//check if chrome has been idle and it is not currently processing from a previous idle
-			if(newState=="idle" && !processing) {
+			if(newState=="idle" &amp;&amp; !processing) {
 				processing=true;
 				
 				lastUpdate=parseFloat(localStorage.lastUpdate) || 0.0;
@@ -71,7 +98,7 @@ function init() {
 					allHistoryItemsTemp=historyItems;
 					
 					//get all history items with matching url
-					for(var i=0;i<historyItems.length;i++) {
+					for(var i=0;i&lt;historyItems.length;i++) {
 						var historyItem=historyItems[i];
 
 						//is nih.gov or wikipedia.org
@@ -83,7 +110,7 @@ function init() {
 					//get the history items (look up wikipedia links and verify they are medical
 					verifiedItems=[];
 					verifyUploadItems(function(success) {
-						if(success && verifiedItems.length>0) {
+						if(success &amp;&amp; verifiedItems.length>0) {
 							allVisitItems=[];
 							allHistoryItems=[];
 							
@@ -115,9 +142,9 @@ function init() {
  * @param {HistoryItem} historyItem - the historyItem to search for
  */
 function findVisitItemByHistoryItem(historyItem) {
-	for(var i=0;i<allVisitItems.length;i++) {
+	for(var i=0;i&lt;allVisitItems.length;i++) {
 		var visitItem=allVisitItems[i];
-		if(visitItem.id==historyItem.id && visitItem.visitTime==historyItem.lastVisitTime) return visitItem;
+		if(visitItem.id==historyItem.id &amp;&amp; visitItem.visitTime==historyItem.lastVisitTime) return visitItem;
 	}
 	return null;
 }
@@ -127,7 +154,7 @@ function findVisitItemByHistoryItem(historyItem) {
  * @param {integer} visitId - the visitId to search for
  */
 function findVisitItemByVisitId(visitId) {
-	for(var i=0;i<allVisitItems.length;i++) {
+	for(var i=0;i&lt;allVisitItems.length;i++) {
 		var visitItem=allVisitItems[i];
 		if(visitItem.visitId==visitId) return visitItem;
 	}
@@ -139,7 +166,7 @@ function findVisitItemByVisitId(visitId) {
  * @param {integer} id - the id to search for
  */
 function findHistoryItemById(id) {
-	for(var i=0;i<allHistoryItems.length;i++) {
+	for(var i=0;i&lt;allHistoryItems.length;i++) {
 		var historyItem=allHistoryItems[i];
 		if(historyItem.id==id) return historyItem;
 	}
@@ -155,7 +182,7 @@ function findHistoryItemById(id) {
  */
 function addChildren(visitId) {
 	//get all visits with referringVisitId equal to this visitId
-	for(var i=0;i<allVisitItems.length;i++) {
+	for(var i=0;i&lt;allVisitItems.length;i++) {
 		var visitItem=allVisitItems[i];
 		if(visitItem.referringVisitId==visitId) {
 			//for each one add url, and add visit to chrome_urls and chrome_visits
@@ -294,13 +321,13 @@ function traverseAndPost(callback) {
 	//sort the urls and visits
 	chrome_urls.sort(function(a,b) {
 		if(a.url_id>b.url_id) return 1;
-		if(a.url_id<b.url_id) return -1;
+		if(a.url_id&lt;b.url_id) return -1;
 		return 0;
 	});	
 	
 	chrome_visits.sort(function(a,b) {
 		if(a.visit_id>b.visit_id) return 1;
-		if(a.visit_id<b.visit_id) return -1;
+		if(a.visit_id&lt;b.visit_id) return -1;
 		return 0;
 	});	
 
@@ -342,7 +369,7 @@ function getAllVisits(callback) {
 	allHistoryItems.push(historyItem);
 	console.log("historyItem:"+JSON.stringify(historyItem));
 	chrome.history.getVisits({"url":historyItem.url},function(visitItems) {
-		for(var i=0;i<visitItems.length;i++) {
+		for(var i=0;i&lt;visitItems.length;i++) {
 			var visitItem=visitItems[i];
 			console.log("  --  visitItem:"+JSON.stringify(visitItem));
 			allVisitItems.push(visitItem);
@@ -371,7 +398,7 @@ function saveTree(callback) {
 //	if(callback) callback(true); //for testing only
 //	return; //for testing only
 	
-	var query="url_tree="+encodeURIComponent(url_tree)+"&user_token="+encodeURIComponent(token);
+	var query="url_tree="+encodeURIComponent(url_tree)+"&amp;user_token="+encodeURIComponent(token);
 	var req=new XMLHttpRequest();
 
 	req.onreadystatechange=function(e) {
@@ -597,7 +624,7 @@ function clinical_detect(wiki_text){
 		 ];
 
 	wiki_text=wiki_text.toLowerCase();
-	for(var i=0;i<clinical_terms.length;i++) {
+	for(var i=0;i&lt;clinical_terms.length;i++) {
 		var term=clinical_terms[i].toLowerCase();
 		if(wiki_text.indexOf(term)>-1) {
 			return true;
@@ -607,4 +634,26 @@ function clinical_detect(wiki_text){
 	return false;
 }
 
-init();
+init();</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Index</a></h2><h3>Global</h3><ul><li><a href="global.html#addChildren">addChildren</a></li><li><a href="global.html#clinical_detect">clinical_detect</a></li><li><a href="global.html#findHistoryItemById">findHistoryItemById</a></li><li><a href="global.html#findVisitItemByHistoryItem">findVisitItemByHistoryItem</a></li><li><a href="global.html#findVisitItemByVisitId">findVisitItemByVisitId</a></li><li><a href="global.html#getAllVisits">getAllVisits</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#saveTree">saveTree</a></li><li><a href="global.html#traverseAndPost">traverseAndPost</a></li><li><a href="global.html#verifyUploadItems">verifyUploadItems</a></li></ul>
+</nav>
+
+<br clear="both">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.3.0-dev</a> on Mon Jul 28 2014 16:20:58 GMT-0400 (EDT)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

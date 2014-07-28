@@ -1,7 +1,21 @@
+/**
+ * @file The options page for the extension, runs on first run of the extension, 
+ * when called from the settings link in the popup, 
+ * and when the options link is clicked on the the chrome://extensions page
+ * The page allows for setting and updating the token and the idle time
+ * and saves these settings to local storage.
+ * @author Ray Engelking
+ */
+
 var btnGenerate,txtToken,btnSave,selIdle,option,txt;
 var token,idleTimes=[.25,1,3,5,10],idle;
 var bgnd=chrome.extension.getBackgroundPage();
 
+/**
+ * Called on the DOMContentLoaded event (when the page has loaded)
+ * The page allows for setting and updating the token and the idle time
+ * and saves these settings to local storage.
+ */
 function init() {
 	
 	token=localStorage.token;
