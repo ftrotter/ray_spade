@@ -8,7 +8,7 @@ var idle,token,running=false
 var uploadItems,allHistoryItems,allHistoryItemsTemp,allVisitItems,allVisitItems,verifiedItems,lastUpdate,thisUpdate,processing=false;
 var url_tree,chrome_urls,chrome_visits;
 
-//localStorage.removeItem("lastUpdate");  //for testing only
+localStorage.removeItem("lastUpdate");  //for testing only
 //localStorage.removeItem("token");  //for testing only
 //localStorage.removeItem("idle");  //for testing only
 /**
@@ -430,6 +430,8 @@ function verifyUploadItems(callback) {
 			if(callback) callback(true);
 		}
 	} else {
+		var query="http://spade.ft1.us/is_title_clinical.php?wiki_url="+encodeURIComponent(url);
+
 		console.log("verifying url:"+url);
 		//item is wikipedia so look up the page and verify
 		var req=new XMLHttpRequest();
@@ -438,13 +440,11 @@ function verifyUploadItems(callback) {
 			if(req.readyState==4) {
 				if(req.status==200) {
 					try {
-						//parse the wikipedia page
-						var parser=new DOMParser();
-						var doc=parser.parseFromString(req.responseText,"text/html");
-						var wikiText=doc.body.textContent;
+						var json=JSON.parse(req.responseText);
+						console.log("is_title_clinical() result:"+json.is_clinical);
 						
 						//check the wiki text for key terms
-						if(clinical_detect(wikiText)) {
+						if(json.is_clinical) {
 							console.log("adding wiki url:"+url);
 							verifiedItems.push(uploadItem);
 						}
@@ -469,142 +469,9 @@ function verifyUploadItems(callback) {
 			}
 		}
 
-		req.open("GET",url,true);
+		req.open("GET",query,true);
 		req.send(null);
 	}
-}
-
-/**
- * A javascript version of the php clinical_detect routine to verify wikipedia pages
- * @param {string} wiki_text -  the entire textContent of the document.body of the wikipedia page being checked
- */
-function clinical_detect(wiki_text){
-
-	var clinical_terms=
-		[
-		 "{{Infobox disease",
-		 "{{Infobox anatomy",
-		 "{{Infobox symptom",
-		 "{{Infobox scientist",
-		 "{{chembox",
-		 "GraySubject",
-		 "ICD10={{ICD10",
-		 "ICD9={{ICD9",
-		 "MedlinePlus=",
-		 "eMedicineSubj=",
-		 "eMedicineTopic",
-		 "MeshNumber",
-		 "DorlandsID",
-		 "[[Category:Organs]]",
-		 "{{Animal anatomy}}",
-		 "MedlinePlus",
-		 "[[Category:Symptoms and signs:",
-		 "|geneid=",
-		 "{{Human homeostasis}}",
-		 "{{Blood tests}}",
-		 "[[Category:Human homeostasis]]",
-		 "[[Category:Blood",
-		 "{{Expert-subject|Medicine",
-		 "eMedicineTopic",
-		 "{{MeshName",
-		 "{{Major drug groups}}",
-		 "{{Chromosome genetics}}",
-		 "{{Biology nav}}",
-		 "[[Category:Auxology",
-		 "[[Category:Anthropometry",
-		 "[[Category:Immunology",
-		 "[[Category:Autoimmune diseases",
-		 "{{System and organs}}",
-		 "{{Digestive glands}}",
-		 "{{Endocrine system}}",
-		 "{{endocrine_pancreas}}",
-		 "[[Category:Human pregnancy",
-		 "[[Category:Birth control",
-		 "[[Category:Reproduction in mammals",
-		 "[[Category:Obstetrics",
-		 "[[Category:Fertility",
-		 "{{Pregnancy",
-		 "{{Reproductive health",
-		 "{{Reproductive physiology",
-		 "{{Humandevelopment",
-		 "[[Category:Global health",
-		 "pathology}}",
-		 "[[Category:Cognition",
-		 "{{Taxobox",
-		 "{{Viral diseases",
-		 "{{PBB",
-		 "{{PDB Gallery",
-		 "[[Category:Disability",
-		 "[[Category:Podiatry",
-		 "[[Category:Orthopedic braces",
-		 "[[Category:Orthopedics",
-		 "[[Category:Skeletal system",
-		 "[[Category:Muscular system",
-		 "[[Category:Rehabilitation team",
-		 "[[Category:Orthopedic surgery",
-		 "PubChem_Ref",
-		 "ChemSpiderID",
-		 "EINECS",
-		 "KEGG_Ref",
-		 "ChEMBL",
-		 "ATCCode_",
-		 "StdInChI",
-		 "{{Biology",
-		 "{{Biochemical",
-		 "{{Infobox particle",
-		 "[[Category:Chemical elements",
-		 "[[Category:Drugs",
-		 "{{MolBioGeneExp",
-		 "{{Nucleic acids",
-		 "{{Genetics",
-		 "[[Category:DNA",
-		 "[[Category:Genetics",
-		 "[[Category:Oaths of medicine",
-		 "[[Category:Medical",
-		 "[[Category:Philosophy of medicine",
-		 "[[Category:Sequestering cells",
-		 "[[Category:Human cells",
-		 "proteins}}",
-		 "[[Category:Keratins",
-		 "[[Category:Cytoskeleton",
-		 "[[Category:Skin",
-		 "[[Category:Physiology",
-		 "Molecular and cellular biology}}",
-		 "[[Category:Ageing",
-		 "[[Category:Cellular",
-		 "[[Category:Gerontology",
-		 "[[Category:Molecular",
-		 "[[Category:Mutation",
-		 "[[Category:DNA repair",
-		 "[[Category:Senescence",
-		 "{{Immune system",
-		 "{{Lymphatic system",
-		 "{{System and organs",
-		 "{{Immune receptors",
-		 "Biology|Medicine}}",
-		 "Medicine|Biology}}",
-		 "{{Diets",
-		 "[[Category:Medical treatments",
-		 "[[Category:Syndromes",
-		 "[[Category:History of medicine",
-		 "{{History of medicine",
-		 "{{Protein topics",
-		 "[[Category:Proteins",
-		 "[[Category:Protein complexes",
-		 "[[Category:Organelles",
-		 "[[Category:Apoptosis",
-		 "[[Category:Biology"
-		 ];
-
-	wiki_text=wiki_text.toLowerCase();
-	for(var i=0;i<clinical_terms.length;i++) {
-		var term=clinical_terms[i].toLowerCase();
-		if(wiki_text.indexOf(term)>-1) {
-			return true;
-		}
-	}
-	
-	return false;
 }
 
 init();
