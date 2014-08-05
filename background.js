@@ -371,7 +371,7 @@ function saveTree(callback) {
 //	if(callback) callback(true); //for testing only
 //	return; //for testing only
 	
-	var query="url_tree="+encodeURIComponent(url_tree)+"&user_token="+encodeURIComponent(token);
+	var query="url_tree="+encodeURIComponent(url_tree_string)+"&user_token="+encodeURIComponent(token);
 	var req=new XMLHttpRequest();
 
 	req.onreadystatechange=function(e) {
