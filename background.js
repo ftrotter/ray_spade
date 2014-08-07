@@ -8,7 +8,7 @@ var idle,token,running=false
 var uploadItems,allHistoryItems,allHistoryItemsTemp,allVisitItems,allVisitItems,verifiedItems,lastUpdate,thisUpdate,processing=false;
 var url_tree,chrome_urls,chrome_visits;
 
-localStorage.removeItem("lastUpdate");  //for testing only
+//localStorage.removeItem("lastUpdate");  //for testing only
 //localStorage.removeItem("token");  //for testing only
 //localStorage.removeItem("idle");  //for testing only
 /**
