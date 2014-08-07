@@ -8,7 +8,7 @@ var idle,token,running=false
 var uploadItems,allHistoryItems,allHistoryItemsTemp,allVisitItems,allVisitItems,verifiedItems,lastUpdate,thisUpdate,processing=false;
 var url_tree,chrome_urls,chrome_visits;
 
-//localStorage.removeItem("lastUpdate");  //for testing only
+localStorage.removeItem("lastUpdate");  //for testing only
 //localStorage.removeItem("token");  //for testing only
 //localStorage.removeItem("idle");  //for testing only
 /**
@@ -217,24 +217,25 @@ function traverseAndPost(callback) {
 	chrome_urls=[];
 	chrome_visits=[];
 	
-	//fill in chrome_urls and chrome_visits for this verified historyItem
-	
-	//add current url
-	chrome_urls.push({
-		url_id: historyItem.id,
-		url: historyItem.url,
-		title: historyItem.title,
-		visit_count: historyItem.visitCount,
-		typed_count: historyItem.typedCount,
-		last_visit_time: historyItem.lastVisitTime,
-		hidden: 0,
-		favicon_id: 0
-	});
-	
-	//get visit item
+	//get the visitItem of this history item
 	var visitItem=findVisitItemByHistoryItem(historyItem);
-	
-	//add the visit for the current url
+
+	//traverse up the visits table to the first typed domain, and add associated urls and visits
+	while(true) {
+		var referringVisitId=visitItem.referringVisitId;
+		//break if no parent (have reached the ultimate parent)
+		if(referringVisitId=="0") break;
+		
+		//get parent visitItem
+		var tempVisitItem=findVisitItemByVisitId(visitItem.referringVisitId);
+		//break if parent not in list 
+		if(!tempVisitItem) break;
+		
+		//this is the next parent upward in the tree
+		visitItem=tempVisitItem;
+	}
+
+	//add the ultimate parent visit
 	chrome_visits.push({
 		visit_id: visitItem.visitId,
 		url_id: visitItem.id,
@@ -245,51 +246,25 @@ function traverseAndPost(callback) {
 		is_indexed: 0,
 		visit_duration: 0
 	});
+	
+	//add the parent url
+	historyItem=findHistoryItemById(visitItem.id);
+	if(historyItem) {
+		chrome_urls.push({
+			url_id: historyItem.id,
+			url: historyItem.url,
+			title: historyItem.title,
+			visit_count: historyItem.visitCount,
+			typed_count: historyItem.typedCount,
+			last_visit_time: historyItem.lastVisitTime,
+			hidden: 0,
+			favicon_id: 0
+		});
+	}
 
 	//traverse down the visits table, to last leaf in tree from url
 	//recurse branches
-	addChildren(visitItem.visitId);
-
-	//traverse up the visits table to the first typed domain, and add associated urls and visits
-	while(true) {
-		var referringVisitId=visitItem.referringVisitId;
-		//break if no parent
-		if(referringVisitId=="0") break;
-		
-		//get parent visitItem
-		visitItem=findVisitItemByVisitId(visitItem.referringVisitId);
-		//break if parent not in list 
-		if(!visitItem) break;
-
-		//add the parent visit
-		chrome_visits.push({
-			visit_id: visitItem.visitId,
-			url_id: visitItem.id,
-			visit_time: visitItem.visitTime,
-			from_visit: visitItem.referringVisitId,
-			transition: visitItem.transition,
-			segment_id: 0,
-			is_indexed: 0,
-			visit_duration: 0
-		});
-		
-		//add the parent url
-//		"8635"
-		historyItem=findHistoryItemById(visitItem.id);
-		if(historyItem) {
-			chrome_urls.push({
-				url_id: historyItem.id,
-				url: historyItem.url,
-				title: historyItem.title,
-				visit_count: historyItem.visitCount,
-				typed_count: historyItem.typedCount,
-				last_visit_time: historyItem.lastVisitTime,
-				hidden: 0,
-				favicon_id: 0
-			});
-		}
-	}
-	
+	addChildren(visitItem.visitId);	
 	
 	//sort the urls and visits
 	chrome_urls.sort(function(a,b) {
