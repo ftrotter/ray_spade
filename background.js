@@ -6,7 +6,7 @@
 
 var idle,token,running=false
 var uploadItems,allHistoryItems,allHistoryItemsTemp,allVisitItems,allVisitItems,verifiedItems,lastUpdate,thisUpdate,processing=false;
-var url_tree,chrome_urls,chrome_visits;
+var url_tree,chrome_urls,chrome_visits,db;
 
 //localStorage.removeItem("lastUpdate");  //for testing only
 //localStorage.removeItem("token");  //for testing only
@@ -28,82 +28,114 @@ var url_tree,chrome_urls,chrome_visits;
 function init() {
 	token=localStorage.token; 
 	idle=localStorage.idle;  //idle upload interval in minutes (float)
-	
+
 	//if no token yet, then show the option page, and quit the init for now
 	//as the options page will call the init when ready
 	if(!token) {
 		chrome.tabs.create({"url": "options.html"});
 		return;
 	}
-	
+
 	//at this point, idle and token are set
 	console.log("token:"+token);
 	console.log("idle:"+idle);
-	
+
 	var idleSecs=Math.floor(parseFloat(idle)*60);
 	console.log("idleSecs:"+idleSecs);
 	//update the idle detection interval
 	chrome.idle.setDetectionInterval(idleSecs); 
-	
+
 	//check if running already, don't add the listener twice
 	console.log("running:"+running);
 	if(!running) {
 		running=true;
-		
+
+
+		//create and/or open database
+		db=window.openDatabase("history","1.0","Supplemental Chrome History Database",1073741824);  //max size 1GB
+		//create the urls table if it doesn't exist yet
+		db.transaction(function(tx) {
+			tx.executeSql("CREATE TABLE urls (id INTEGER PRIMARY KEY,url LONGVARCHAR,title LONGVARCHAR,visit_count INTEGER DEFAULT 0 NOT NULL,typed_count INTEGER DEFAULT 0 NOT NULL,last_visit_time INTEGER NOT NULL,hidden INTEGER DEFAULT 0 NOT NULL,favicon_id INTEGER DEFAULT 0 NOT NULL)");
+			tx.executeSql("CREATE INDEX IF NOT EXISTS last_visit_time_idx ON urls (last_visit_time)");
+		});
+
+		//add listener to listen for history items
+		chrome.history.onVisited.addListener(function(historyItem) {
+			console.log("NEW HISTORY_ITEM:"+JSON.stringify(historyItem));
+			//upsert the history item to the current database
+			db.transaction(function(tx) {
+				tx.executeSql("INSERT OR REPLACE INTO urls (id,url,title,visit_count,typed_count,last_visit_time) VALUES(?,?,?,?,?,?)",[historyItem.id,historyItem.url,historyItem.title,historyItem.visitCount,historyItem.typedCount,historyItem.lastVisitTime]);
+			});
+		});
+
 		//add listener to check for idle
 		chrome.idle.onStateChanged.addListener(function(newState) {
 			console.log("newState:"+newState);
-			
+
 			//check if chrome has been idle and it is not currently processing from a previous idle
 			if(newState=="idle" && !processing) {
 				processing=true;
-				
+
 				lastUpdate=parseFloat(localStorage.lastUpdate) || 0.0;
 				thisUpdate=(new Date).getTime();	
-				var query={"text":"","startTime":lastUpdate,"maxResults":10000};
-		
+
 				//clear the upload list
 				uploadItems=[];
-				
-				//search all the recent history items
-				chrome.history.search(query,function(historyItems) {
-					//save all the history items because we need these urls to get all the visits
-					allHistoryItemsTemp=historyItems;
-					
-					//get all history items with matching url
-					for(var i=0;i<historyItems.length;i++) {
-						var historyItem=historyItems[i];
 
-						//is nih.gov or wikipedia.org
-						if(/^https?:\/\/(.+\.)?(wikipedia\.org|nih\.gov)\//.test(historyItem.url)) {
-							uploadItems.push(historyItem);
+				//search all the recent history items
+				db.transaction(function (tx) {
+					tx.executeSql("SELECT * FROM urls WHERE last_visit_time>=?",[lastUpdate],function(tx,results) {
+						var historyItems=[];
+						var len=results.rows.length,i;
+						for(i=0;i<len;i++){
+							r=results.rows.item(i);
+							historyItems.push({"id":r.id,"url":r.url,"title":r.title,"visitCount":r.visit_count,"typedCount":r.typed_count,"lastVisitTime":r.last_visit_time});
 						}
-					}
-					
-					//get the history items (look up wikipedia links and verify they are medical
-					verifiedItems=[];
-					verifyUploadItems(function(success) {
-						if(success && verifiedItems.length>0) {
-							allVisitItems=[];
-							allHistoryItems=[];
-							
-							getAllVisits(function(success) {
-								if(success) {
-									//at this point allHistoryItems, allVisitItems, and verifiedItems are filled
-									//so just need to extract the trees
-									traverseAndPost(function(success) {
-										//all verifiedItems have been posted at this point
-										localStorage["lastUpdate"]=thisUpdate;  //comment out for testing of all links
+						
+						//OPTIONAL: empty the supplemental history table, after every use
+						//tx.executeSql("DELETE FROM urls");
+
+						for(var n=0;n<historyItems.length;n++) {
+							console.log("HISTORY id:"+historyItems[n].id+"  url:"+historyItems[n].url);
+						}
+						//save all the history items because we need these urls to get all the visits
+						allHistoryItemsTemp=historyItems;
+
+						//get all history items with matching url
+						for(var i=0;i<historyItems.length;i++) {
+							var historyItem=historyItems[i];
+
+							//is nih.gov or wikipedia.org
+							if(/^https?:\/\/(.+\.)?(wikipedia\.org|nih\.gov)\//.test(historyItem.url)) {
+								uploadItems.push(historyItem);
+							}
+						}
+
+						//get the history items (look up wikipedia links and verify they are medical
+						verifiedItems=[];
+						verifyUploadItems(function(success) {
+							if(success && verifiedItems.length>0) {
+								allVisitItems=[];
+								allHistoryItems=[];
+
+								getAllVisits(function(success) {
+									if(success) {
+										//at this point allHistoryItems, allVisitItems, and verifiedItems are filled
+										//so just need to extract the trees
+										traverseAndPost(function(success) {
+											//all verifiedItems have been posted at this point
+											localStorage["lastUpdate"]=thisUpdate;  //comment out for testing of all links
+											processing=false;
+										});
+									} else {
 										processing=false;
-									});
-								} else {
-									processing=false;
-								}
-							});
-						} else {
-							processing=false;
-						}
-					});
+									}
+								});
+							} else {
+								processing=false;
+							}
+						});
+					},null);
 				});
 			}
 		});
@@ -153,7 +185,12 @@ function findHistoryItemById(id) {
  * for each chil visit call addChildren to get the children of this child, recursively
  * @param {integer} visitId -  the visitId to search for
  */
-function addChildren(visitId) {
+function addChildren(visitId,level) {
+	if(!level) {
+		level="----"; 
+	} else {
+		level+="----";
+	}
 	//get all visits with referringVisitId equal to this visitId
 	for(var i=0;i<allVisitItems.length;i++) {
 		var visitItem=allVisitItems[i];
@@ -174,20 +211,24 @@ function addChildren(visitId) {
 			//add the parent url
 			historyItem=findHistoryItemById(visitItem.id);
 			if(historyItem) {
-				chrome_urls.push({
-					url_id: historyItem.id,
-					url: historyItem.url,
-					title: historyItem.title,
-					visit_count: historyItem.visitCount,
-					typed_count: historyItem.typedCount,
-					last_visit_time: historyItem.lastVisitTime,
-					hidden: 0,
-					favicon_id: 0
-				});
+				console.log(level+"CHILD:"+historyItem.url+"  visitItem.visitId:"+visitItem.visitId);
+				//don't add it, if already in the chrome_urls
+				if(chrome_urls.map(function(e) { return e.url_id; }).indexOf(historyItem.id)==-1) {
+					chrome_urls.push({
+						url_id: historyItem.id,
+						url: historyItem.url,
+						title: historyItem.title,
+						visit_count: historyItem.visitCount,
+						typed_count: historyItem.typedCount,
+						last_visit_time: historyItem.lastVisitTime,
+						hidden: 0,
+						favicon_id: 0
+					});
+				}
 			}			
 
 			//for each one call addChildren(visitId), to get any children of this child
-			addChildren(visitItem.visitId);
+			addChildren(visitItem.visitId,level);
 		}
 	}
 }
@@ -219,7 +260,7 @@ function traverseAndPost(callback) {
 	
 	//get the visitItem of this history item
 	var visitItem=findVisitItemByHistoryItem(historyItem);
-
+    var startURL=historyItem.url;
 	//traverse up the visits table to the first typed domain, and add associated urls and visits
 	while(true) {
 		var referringVisitId=visitItem.referringVisitId;
@@ -234,6 +275,7 @@ function traverseAndPost(callback) {
 		//this is the next parent upward in the tree
 		visitItem=tempVisitItem;
 	}
+	
 
 	//add the ultimate parent visit
 	chrome_visits.push({
@@ -250,16 +292,21 @@ function traverseAndPost(callback) {
 	//add the parent url
 	historyItem=findHistoryItemById(visitItem.id);
 	if(historyItem) {
-		chrome_urls.push({
-			url_id: historyItem.id,
-			url: historyItem.url,
-			title: historyItem.title,
-			visit_count: historyItem.visitCount,
-			typed_count: historyItem.typedCount,
-			last_visit_time: historyItem.lastVisitTime,
-			hidden: 0,
-			favicon_id: 0
-		});
+		console.log("START URL:"+startURL);
+		console.log("ULTIMATE PARENT URL:"+historyItem.url);
+		//don't add it, if already in the chrome_urls
+		if(chrome_urls.map(function(e) { return e.url_id; }).indexOf(historyItem.id)==-1) {
+			chrome_urls.push({
+				url_id: historyItem.id,
+				url: historyItem.url,
+				title: historyItem.title,
+				visit_count: historyItem.visitCount,
+				typed_count: historyItem.typedCount,
+				last_visit_time: historyItem.lastVisitTime,
+				hidden: 0,
+				favicon_id: 0
+			});
+		}
 	}
 
 	//traverse down the visits table, to last leaf in tree from url
